@@ -2,7 +2,7 @@ import streamlit as st
 import base64
 from PIL import Image
 import io
-import openai  # O puedes usar la librería de google-generativeai
+import openai
 
 # Configuración de página
 st.set_page_config(page_title="Validador & Tasador IA - Inmuebles Venezuela", page_icon="🏠", layout="wide")
@@ -34,7 +34,6 @@ col_left, col_right = st.columns([1, 1])
 with col_left:
     st.subheader("📋 Datos del Inmueble")
     
-    # NUEVO CAMPO: Tipo de Propiedad
     tipo_propiedad = st.selectbox(
         "Tipo de Propiedad",
         ["Apartamento", "Casa / Townhouse", "Local Comercial", "Posada / Hotel", "Terreno / Galpón"]
@@ -46,7 +45,6 @@ with col_left:
     banos = st.slider("Número de Baños", 1, 20, 2)
     puestos = st.slider("Puestos de Estacionamiento", 0, 20, 1)
 
-    
     st.subheader("⚡ Servicios Críticos")
     tanque_agua = st.checkbox("¿Edificio/Casa con Tanque de Agua de Gran Capacidad?", value=True)
     planta_electrica = st.checkbox("¿Planta Eléctrica en el Conjunto?", value=False)
@@ -55,7 +53,7 @@ with col_right:
     st.subheader("📸 Inspección Visual con IA (Opcional)")
     uploaded_file = st.file_uploader("Sube una foto representativa (Cocina, Baño o Sala)", type=["jpg", "jpeg", "png"])
     
-    estado_conservacion = "Habitable / Estándar"  # Valor por defecto
+    estado_conservacion = "Habitable / Estándar"
     analisis_ia_texto = ""
 
     if uploaded_file is not None:
@@ -66,12 +64,10 @@ with col_right:
             if st.button("🤖 Analizar Acabados con Visión Artificial"):
                 with st.spinner("La IA está evaluando los materiales y el estado de conservación..."):
                     try:
-                        # Convertir imagen a base64
                         buffered = io.BytesIO()
                         image.save(buffered, format="JPEG")
                         img_str = base64.b64encode(buffered.getvalue()).decode()
 
-                        # Llamada a OpenAI GPT-4o con visión
                         client = openai.OpenAI(api_key=api_key)
                         response = client.chat.completions.create(
                             model="gpt-4o",
@@ -95,7 +91,6 @@ with col_right:
                         st.success("Análisis completado por la IA:")
                         st.write(analisis_ia_texto)
 
-                        # Auto-seleccionar categoría basada en la respuesta
                         if "Lujo" in analisis_ia_texto or "Remodelado" in analisis_ia_texto:
                             estado_conservacion = "Totalmente Remodelado / Lujo"
                         elif "remodelar" in analisis_ia_texto.lower():
@@ -117,8 +112,8 @@ with col_right:
 st.markdown("---")
 
 # 4. Motor de Cálculo de Tasación
-def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta):
-    base_m2 = PRECIOS_BASE_M2[zona]
+def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta, tipo_prop):
+    base_m2 = PRECIOS_BASE_M2.get(zona, 500)
     
     # Coeficiente por estado
     coef_estado = 0.82 if estado == "Para remodelar" else (1.0 if estado == "Habitable / Estándar" else 1.28)
@@ -130,7 +125,17 @@ def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta):
     if planta:
         coef_servicios += 0.12
 
-    precio_m2_ajustado = base_m2 * coef_estado * coef_servicios
+    # Coeficiente según tipo de propiedad
+    factores_tipo = {
+        "Apartamento": 1.0,
+        "Casa / Townhouse": 0.95,
+        "Local Comercial": 1.15,
+        "Posada / Hotel": 1.25,
+        "Terreno / Galpón": 0.60
+    }
+    coef_tipo = factores_tipo.get(tipo_prop, 1.0)
+
+    precio_m2_ajustado = base_m2 * coef_estado * coef_servicios * coef_tipo
     valor_estimado = precio_m2_ajustado * m2
     
     # Rango de negociación (+/- 7%)
@@ -141,20 +146,8 @@ def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta):
 
 if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     estimado, p_min, p_max, m2_ajustado = calcular_tasacion(
-        zona, metros_cuadrados, habitaciones, banos, puestos, estado_conservacion, tanque_agua, planta_electrica
+        zona, metros_cuadrados, habitaciones, banos, puestos, estado_conservacion, tanque_agua, planta_electrica, tipo_propiedad
     )
-        # Factor según tipo de propiedad
-    factores_tipo = {
-        "Apartamento": 1.0,
-        "Casa / Townhouse": 0.95,       # Suele tener más m² construidos/terreno
-        "Local Comercial": 1.15,        # Mayor valor comercial por m²
-        "Posada / Hotel": 1.25,         # Fondo de comercio / uso turístico
-        "Terreno / Galpón": 0.60
-    }
-    coef_tipo = factores_tipo.get(tipo_propiedad, 1.0)
-
-    precio_m2_ajustado = base_m2 * coef_estado * coef_servicios * coef_tipo
-    
     
     st.subheader("📊 Resultados de la Tasación")
     
@@ -168,13 +161,12 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     st.markdown("### 📋 Ficha para Publicar en Facebook / WhatsApp")
     
     texto_publicacion = f"""
-    🏠 **Tipo:** {tipo_propiedad}
-
 ✨ **EVALUACIÓN DE MERCADO - VALIDADOR IA** ✨
 
+🏠 **Tipo:** {tipo_propiedad}
 📍 **Ubicación:** {zona}
 📐 **Superficie:** {metros_cuadrados} m²
-🛏️ **Distribución:** {habitaciones} Hab | {banos} Baños | {puestos} Est.
+🛏️ **Distribución:** {habitaciones} Hab/Ambientes | {banos} Baños | {puestos} Est.
 🛠️ **Estado:** {estado_conservacion}
 💧 **Agua / Luz:** {"Tanque Integrado" if tanque_agua else "Sin tanque principal"} | {"Planta Eléctrica" if planta_electrica else "Sin planta"}
 
@@ -185,3 +177,4 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
 *Análisis generado mediante Modelo de Valoración Hedónica Ajustada.*
     """
     st.code(texto_publicacion, language="markdown")
+
