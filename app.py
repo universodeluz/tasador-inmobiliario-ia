@@ -16,14 +16,23 @@ st.markdown("---")
 st.sidebar.header("🔑 Configuración de IA")
 api_key = st.sidebar.text_input("OpenAI API Key (para análisis de fotos)", type="password")
 
-# 2. Base de Datos de Precios Referenciales (Ajustable a tu mercado local)
+# 2. Base de Datos de Precios Referenciales (Actualizada Nueva Esparta y Caracas)
 PRECIOS_BASE_M2 = {
-    "Chacao / Altamira / Los Palos Grandes": 1100,
-    "Baruta / Las Mercedes / Valle Arriba": 1250,
-    "El Hatillo / La Lagunita": 850,
+    # --- Estado Nueva Esparta (Isla de Margarita / Coche) ---
+    "Porlamar (Comercial / Residencial Principal)": 550,
+    "Pampatar (Boca del Río / Costamar / El Morro)": 750,
+    "La Asunción (Centro Histórico / Residencial)": 500,
+    "Juan Griego (Zona Norte / Comercial)": 480,
+    "Playa El Agua (Costa Turística / Vacacional)": 700,
+    "La Mira (Costa Este / Residencial Turística)": 650,
+    "El Valle / Guacuco": 600,
+    
+    # --- Otras Regiones Clave ---
+    "Chacao / Altamira / Los Palos Grandes (Caracas)": 1100,
+    "Baruta / Las Mercedes / Valle Arriba (Caracas)": 1250,
+    "El Hatillo / La Lagunita (Caracas)": 850,
     "La Guaira (Zonas residenciales/playeras)": 650,
     "San Antonio de los Altos / Los Salias": 550,
-    "Isla de Margarita (Porlamar / Pampatar)": 600,
     "Gran Caracas / Centro / Oeste": 450,
     "Otra Zona / Promedio General": 500
 }
@@ -45,9 +54,10 @@ with col_left:
     banos = st.slider("Número de Baños", 1, 20, 2)
     puestos = st.slider("Puestos de Estacionamiento", 0, 20, 1)
 
-    st.subheader("⚡ Servicios Críticos")
-    tanque_agua = st.checkbox("¿Edificio/Casa con Tanque de Agua de Gran Capacidad?", value=True)
-    planta_electrica = st.checkbox("¿Planta Eléctrica en el Conjunto?", value=False)
+    st.subheader("⚡ Servicios Críticos e Infraestructura")
+    tanque_agua = st.checkbox("¿Tanque de Agua de Gran Capacidad?", value=True)
+    pozo_propio = st.checkbox("💧 ¿Pozo de Agua Propio (Casa o Edificio)?", value=False)
+    planta_electrica = st.checkbox("⚡ ¿Planta Eléctrica (Total o Áreas Comunes)?", value=False)
 
 with col_right:
     st.subheader("📸 Inspección Visual con IA (Opcional)")
@@ -111,19 +121,21 @@ with col_right:
 
 st.markdown("---")
 
-# 4. Motor de Cálculo de Tasación
-def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta, tipo_prop):
+# 4. Motor de Cálculo de Tasación (Incluyendo Pozo Profundo)
+def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, pozo, planta, tipo_prop):
     base_m2 = PRECIOS_BASE_M2.get(zona, 500)
     
     # Coeficiente por estado
     coef_estado = 0.82 if estado == "Para remodelar" else (1.0 if estado == "Habitable / Estándar" else 1.28)
     
-    # Coeficiente por servicios en Venezuela
+    # Coeficiente por servicios críticos ponderados para Venezuela
     coef_servicios = 1.0
     if tanque:
-        coef_servicios += 0.05
+        coef_servicios += 0.04
+    if pozo:
+        coef_servicios += 0.12  # El pozo aporta un plus muy alto de valoración
     if planta:
-        coef_servicios += 0.12
+        coef_servicios += 0.10
 
     # Coeficiente según tipo de propiedad
     factores_tipo = {
@@ -146,7 +158,7 @@ def calcular_tasacion(zona, m2, hab, banos, puestos, estado, tanque, planta, tip
 
 if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     estimado, p_min, p_max, m2_ajustado = calcular_tasacion(
-        zona, metros_cuadrados, habitaciones, banos, puestos, estado_conservacion, tanque_agua, planta_electrica, tipo_propiedad
+        zona, metros_cuadrados, habitaciones, banos, puestos, estado_conservacion, tanque_agua, pozo_propio, planta_electrica, tipo_propiedad
     )
     
     st.subheader("📊 Resultados de la Tasación")
@@ -160,6 +172,13 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     
     st.markdown("### 📋 Ficha para Publicar en Facebook / WhatsApp")
     
+    # Detalle de servicios para la ficha
+    servicios_lista = []
+    if tanque_agua: servicios_lista.append("Tanque")
+    if pozo_propio: servicios_lista.append("Pozo Propio 💧")
+    if planta_electrica: servicios_lista.append("Planta Eléctrica ⚡")
+    str_servicios = ", ".join(servicios_lista) if servicios_lista else "Servicios básicos estándar"
+
     texto_publicacion = f"""
 ✨ **EVALUACIÓN DE MERCADO - VALIDADOR IA** ✨
 
@@ -168,7 +187,7 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
 📐 **Superficie:** {metros_cuadrados} m²
 🛏️ **Distribución:** {habitaciones} Hab/Ambientes | {banos} Baños | {puestos} Est.
 🛠️ **Estado:** {estado_conservacion}
-💧 **Agua / Luz:** {"Tanque Integrado" if tanque_agua else "Sin tanque principal"} | {"Planta Eléctrica" if planta_electrica else "Sin planta"}
+⚙️ **Servicios Críticos:** {str_servicios}
 
 💰 **Banda Estimada de Publicación:** ${p_min:,.0f} - ${p_max:,.0f} USD
 🎯 **Precio Base Sugerido:** ${estimado:,.0f} USD (${m2_ajustado:,.0f}/m²)
@@ -177,4 +196,4 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
 *Análisis generado mediante Modelo de Valoración Hedónica Ajustada.*
     """
     st.code(texto_publicacion, language="markdown")
-
+                            
