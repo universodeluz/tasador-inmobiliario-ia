@@ -33,12 +33,20 @@ col_left, col_right = st.columns([1, 1])
 
 with col_left:
     st.subheader("📋 Datos del Inmueble")
+    
+    # NUEVO CAMPO: Tipo de Propiedad
+    tipo_propiedad = st.selectbox(
+        "Tipo de Propiedad",
+        ["Apartamento", "Casa / Townhouse", "Local Comercial", "Posada / Hotel", "Terreno / Galpón"]
+    )
+    
     zona = st.selectbox("Ubicación / Urbanización", list(PRECIOS_BASE_M2.keys()))
-    metros_cuadrados = st.number_input("Superficie Total (m²)", min_value=20, max_value=2000, value=80, step=5)
-    habitaciones = st.slider("Número de Habitaciones", 1, 6, 2)
-    banos = st.slider("Número de Baños", 1, 6, 2)
-    puestos = st.slider("Puestos de Estacionamiento", 0, 5, 1)
+    metros_cuadrados = st.number_input("Superficie Total (m²)", min_value=10, max_value=5000, value=80, step=5)
+    habitaciones = st.slider("Número de Habitaciones / Ambientes", 1, 20, 2)
+    banos = st.slider("Número de Baños", 1, 20, 2)
+    puestos = st.slider("Puestos de Estacionamiento", 0, 20, 1)
 
+    
     st.subheader("⚡ Servicios Críticos")
     tanque_agua = st.checkbox("¿Edificio/Casa con Tanque de Agua de Gran Capacidad?", value=True)
     planta_electrica = st.checkbox("¿Planta Eléctrica en el Conjunto?", value=False)
@@ -135,6 +143,18 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     estimado, p_min, p_max, m2_ajustado = calcular_tasacion(
         zona, metros_cuadrados, habitaciones, banos, puestos, estado_conservacion, tanque_agua, planta_electrica
     )
+        # Factor según tipo de propiedad
+    factores_tipo = {
+        "Apartamento": 1.0,
+        "Casa / Townhouse": 0.95,       # Suele tener más m² construidos/terreno
+        "Local Comercial": 1.15,        # Mayor valor comercial por m²
+        "Posada / Hotel": 1.25,         # Fondo de comercio / uso turístico
+        "Terreno / Galpón": 0.60
+    }
+    coef_tipo = factores_tipo.get(tipo_propiedad, 1.0)
+
+    precio_m2_ajustado = base_m2 * coef_estado * coef_servicios * coef_tipo
+    
     
     st.subheader("📊 Resultados de la Tasación")
     
@@ -148,6 +168,8 @@ if st.button("🚀 Calcular Valoración de Mercado", use_container_width=True):
     st.markdown("### 📋 Ficha para Publicar en Facebook / WhatsApp")
     
     texto_publicacion = f"""
+    🏠 **Tipo:** {tipo_propiedad}
+
 ✨ **EVALUACIÓN DE MERCADO - VALIDADOR IA** ✨
 
 📍 **Ubicación:** {zona}
